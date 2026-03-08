@@ -1,16 +1,113 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
 import Link from "next/link";
 import { updateTicketStatus } from "@/actions/tickets";
 import { Badge } from "@/components/ui/badge";
-import { KANBAN_COLUMNS, PRIORITY_COLORS, PRIORITY_EMOJIS, TICKET_TYPES } from "@/lib/constants";
+import { KANBAN_COLUMNS, PRIORITY_COLORS, PRIORITY_EMOJIS, TICKET_TYPES, PRIORITY_LABELS } from "@/lib/constants";
 import { toast } from "sonner";
 import {
   CheckCircle2, Clock, ExternalLink, Play, Pause,
-  Bot, Zap, MessageCircle, ChevronDown
+  Bot, Zap, MessageCircle, ChevronDown, FileText, Brain,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// ─── Ticket Hover Preview ─────────────────────────────────────────────────────
+function TicketPreview({ ticket, anchorRef }: {
+  ticket: Ticket;
+  anchorRef: React.RefObject<HTMLDivElement | null>;
+}) {
+  const [pos, setPos] = useState({ top: 0, left: 0, side: "right" as "right" | "left" });
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!anchorRef.current) return;
+    const rect = anchorRef.current.getBoundingClientRect();
+    const previewWidth = 300;
+    const spaceRight = window.innerWidth - rect.right;
+    const spaceLeft = rect.left;
+    const side = spaceRight >= previewWidth + 12 ? "right" : "left";
+    setPos({
+      top: Math.min(rect.top, window.innerHeight - 320),
+      left: side === "right" ? rect.right + 8 : rect.left - previewWidth - 8,
+      side,
+    });
+  }, [anchorRef]);
+
+  let progressEntries: { ts: string; msg: string }[] = [];
+  try { if (ticket.progressLog) progressEntries = JSON.parse(ticket.progressLog); } catch {}
+
+  return (
+    <div
+      ref={previewRef}
+      className="fixed z-50 w-[300px] rounded-xl overflow-hidden shadow-2xl pointer-events-none"
+      style={{
+        top: pos.top,
+        left: pos.left,
+        background: "#0f172a",
+        border: "1px solid rgba(99,102,241,0.3)",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(99,102,241,0.1)",
+      }}
+    >
+      {/* Header */}
+      <div className="px-3 py-2" style={{ background: "rgba(99,102,241,0.08)", borderBottom: "1px solid rgba(99,102,241,0.12)" }}>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-xs">{PRIORITY_EMOJIS[ticket.priority]}</span>
+          <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: (TICKET_TYPES[ticket.type] || TICKET_TYPES.task).color }}>
+            {(TICKET_TYPES[ticket.type] || TICKET_TYPES.task).label}
+          </span>
+          <span className="text-[10px] text-[#475569] ml-auto font-mono">{ticket.id.slice(-6)}</span>
+        </div>
+        <p className="text-[13px] font-semibold text-[#f1f5f9] leading-snug">{ticket.title}</p>
+      </div>
+
+      {/* Body */}
+      <div className="px-3 py-2.5 space-y-2.5">
+        {ticket.description && (
+          <div>
+            <p className="text-[10px] font-semibold text-[#64748b] uppercase tracking-wide mb-1 flex items-center gap-1">
+              <FileText className="w-2.5 h-2.5" /> Beschreibung
+            </p>
+            <p className="text-[12px] text-[#94a3b8] leading-relaxed line-clamp-4 whitespace-pre-wrap">
+              {ticket.description}
+            </p>
+          </div>
+        )}
+
+        {ticket.claudeContext && (
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-wide mb-1" style={{ color: "#22d3ee60" }}>
+              ⚡ Claude Context
+            </p>
+            <p className="text-[11px] font-mono text-[#22d3ee] line-clamp-2 opacity-70">{ticket.claudeContext}</p>
+          </div>
+        )}
+
+        {progressEntries.length > 0 && (
+          <div>
+            <p className="text-[10px] font-semibold text-[#64748b] uppercase tracking-wide mb-1 flex items-center gap-1">
+              <Brain className="w-2.5 h-2.5" /> KI-Fortschritt
+            </p>
+            <p className="text-[11px] text-[#a855f7] leading-relaxed line-clamp-3">
+              {progressEntries[progressEntries.length - 1].msg}
+            </p>
+          </div>
+        )}
+
+        {/* Meta row */}
+        <div className="flex items-center gap-2 pt-1" style={{ borderTop: "1px solid #1e293b" }}>
+          <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.04)", color: "#64748b" }}>
+            {PRIORITY_LABELS[ticket.priority]}
+          </span>
+          {ticket.aiAssignee && (
+            <span className="text-[10px] text-[#64748b]">· {ticket.aiAssignee}</span>
+          )}
+          <span className="ml-auto text-[10px] text-[#334155]">Click to open</span>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 interface Ticket {
   id: string;
@@ -82,6 +179,23 @@ export function KanbanBoard({ tickets: initialTickets, agendaId, projectId }: Ka
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [hoveredTicket, setHoveredTicket] = useState<Ticket | null>(null);
+  const hoveredRef = useRef<HTMLDivElement | null>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleCardMouseEnter = (e: React.MouseEvent<HTMLDivElement>, t: Ticket) => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    const el = e.currentTarget;
+    hoverTimerRef.current = setTimeout(() => {
+      hoveredRef.current = el;
+      setHoveredTicket(t);
+    }, 250);
+  };
+
+  const handleCardMouseLeave = () => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    setHoveredTicket(null);
+  };
 
   const ticketsByStatus: Record<string, Ticket[]> = {};
   for (const col of KANBAN_COLUMNS) {
@@ -227,6 +341,8 @@ export function KanbanBoard({ tickets: initialTickets, agendaId, projectId }: Ka
                     key={ticket.id}
                     draggable
                     onDragStart={(e) => handleDragStart(e, ticket.id)}
+                    onMouseEnter={(e) => handleCardMouseEnter(e, ticket)}
+                    onMouseLeave={handleCardMouseLeave}
                     className={cn(
                       "rounded-lg cursor-grab active:cursor-grabbing transition-all duration-150 group",
                       dragging === ticket.id && "opacity-30 scale-95",
@@ -353,6 +469,9 @@ export function KanbanBoard({ tickets: initialTickets, agendaId, projectId }: Ka
           </div>
         );
       })}
+      {hoveredTicket && (
+        <TicketPreview key={hoveredTicket.id} ticket={hoveredTicket} anchorRef={hoveredRef} />
+      )}
     </div>
   );
 }

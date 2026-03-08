@@ -58,6 +58,19 @@ model Ticket {
   changelogEntry ChangelogEntry?
   inboxItemId    String?
   inboxItem      InboxItem?      @relation(fields: [inboxItemId], references: [id])
+  attachments    TicketAttachment[]
+}
+
+model TicketAttachment {
+  id           String   @id @default(cuid())
+  ticketId     String
+  ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  data         String   // Base64 encoded file content
+  createdAt    DateTime @default(now())
 }
 
 model ChangelogEntry {

@@ -41,3 +41,18 @@ yarn-error.log*
 next-env.d.ts
 
 /app/generated/prisma
+
+# Database — NEVER commit (contains personal data!)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+/db-backups/
+
+# Logs — machine-specific
+/logs/*.log
+
+# Queue files — auto-generated
+/CLAUDE_QUEUE.md
+/CHATGPT_QUEUE.md
+/COPILOT_QUEUE.md

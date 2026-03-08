@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  color       String   @default("#6366f1")
+  icon        String   @default("folder")
+  status      String   @default("active")
+  order       Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  agendas     Agenda[]
+  tickets     Ticket[]
+}
+
+model Agenda {
+  id          String         @id @default(cuid())
+  projectId   String
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  priority    Int            @default(2)
+  status      String         @default("active")
+  order       Int            @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  tickets     Ticket[]
+  changelog   ChangelogEntry[]
+}
+
+model Ticket {
+  id             String          @id @default(cuid())
+  agendaId       String
+  agenda         Agenda          @relation(fields: [agendaId], references: [id], onDelete: Cascade)
+  projectId      String
+  project        Project         @relation(fields: [projectId], references: [id])
+  title          String
+  description    String?
+  claudeContext  String?
+  status         String          @default("todo")
+  priority       Int             @default(2)
+  type           String          @default("task")
+  order          Int             @default(0)
+  completedAt    DateTime?
+  isActivated    Boolean         @default(false)
+  activatedAt    DateTime?
+  progressLog    String?
+  aiAssignee     String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  changelogEntry ChangelogEntry?
+  inboxItemId    String?
+  inboxItem      InboxItem?      @relation(fields: [inboxItemId], references: [id])
+}
+
+model ChangelogEntry {
+  id        String   @id @default(cuid())
+  agendaId  String
+  agenda    Agenda   @relation(fields: [agendaId], references: [id], onDelete: Cascade)
+  ticketId  String?  @unique
+  ticket    Ticket?  @relation(fields: [ticketId], references: [id])
+  content   String
+  type      String   @default("ticket_completed")
+  createdAt DateTime @default(now())
+}
+
+model InboxItem {
+  id                String    @id @default(cuid())
+  filename          String
+  rawContent        String
+  parsedTitle       String?
+  parsedDescription String?
+  parsedProjectHint String?
+  parsedAgendaHint  String?
+  parsedPriority    Int?
+  status            String    @default("unread")
+  importedTickets   Ticket[]
+  createdAt         DateTime  @default(now())
+}
+
+model LiveLog {
+  id        String   @id @default(cuid())
+  level     String   @default("info")
+  category  String   @default("system")
+  message   String
+  ticketId  String?
+  projectId String?
+  metadata  String?
+  createdAt DateTime @default(now())
+}
+
+model AgendaSyncRun {
+  id          String   @id @default(cuid())
+  status      String   @default("running")
+  itemsFound  Int      @default(0)
+  itemsCreated Int     @default(0)
+  itemsUpdated Int     @default(0)
+  log         String?
+  finishedAt  DateTime?
+  createdAt   DateTime @default(now())
+}

@@ -14,7 +14,7 @@ import {
   ArrowLeft, Save, Trash2, Loader2, CheckCircle2,
   Play, Pause, Brain, Paperclip, X, FileText,
   Image as ImageIcon, File, Bot, ChevronDown, ChevronUp,
-  Send, Sparkles, Globe,
+  Send, Sparkles, Globe, Rocket, Terminal,
 } from "lucide-react";
 import { PRIORITY_COLORS, PRIORITY_LABELS, STATUS_LABELS, TICKET_TYPES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -393,6 +393,9 @@ export default function TicketPage({ params }: { params: Promise<{ id: string }>
   const [showAiChat, setShowAiChat] = useState(false);
   const [showAttachments, setShowAttachments] = useState(false);
   const [recommendation, setRecommendation] = useState<{ model: string; reason: string } | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [publishLogs, setPublishLogs] = useState<string[]>([]);
+  const [publishDone, setPublishDone] = useState(false);
 
   useEffect(() => {
     params.then(p => setTicketId(p.id));
@@ -489,6 +492,38 @@ export default function TicketPage({ params }: { params: Promise<{ id: string }>
 
   const isNotStarted = status === "todo" || status === "backlog";
   const isInProgress = status === "in_progress";
+  const isInReview = status === "in_review";
+
+  async function handlePublish() {
+    if (!confirm("Jetzt veröffentlichen / deployen?")) return;
+    setPublishing(true);
+    setPublishLogs(["⏳ Starte Publish-Prozess..."]);
+    try {
+      const res = await fetch(`/api/tickets/${ticket.id}/publish`, { method: "POST" });
+      const data = await res.json();
+      setPublishLogs(data.logs || []);
+      if (data.success) {
+        setStatus("done");
+        setPublishDone(true);
+        toast.success(`🚀 ${data.label} — erfolgreich deployed!`);
+      } else {
+        toast.error("Publish fehlgeschlagen — Details in den Logs");
+      }
+    } catch (err) {
+      setPublishLogs([`❌ Fehler: ${String(err)}`]);
+      toast.error("Publish-Fehler");
+    } finally {
+      setPublishing(false);
+    }
+  }
+
+  // Determine publish label based on project name
+  function getPublishLabel() {
+    const projectName = (ticket.agenda?.project?.name ?? "").toLowerCase();
+    if (projectName.includes("example") || projectName.includes("website")) return "🌐 Cloudflare Pages deployen";
+    if (projectName.includes("post") || projectName.includes("linkedin")) return "📱 LinkedIn Posts freigeben";
+    return "✅ Als erledigt bestätigen";
+  }
 
   return (
     <div className="space-y-5 max-w-3xl mx-auto">
@@ -543,6 +578,52 @@ export default function TicketPage({ params }: { params: Promise<{ id: string }>
                 : <><Play className="w-3.5 h-3.5" /> Starten</>}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* PUBLISH BUTTON — Only when in_review */}
+      {isInReview && !publishDone && (
+        <div className="rounded-xl overflow-hidden" style={{ background: "#1e293b", border: "1px solid rgba(168,85,247,0.4)" }}>
+          <div className="p-4 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "rgba(168,85,247,0.15)", border: "1px solid rgba(168,85,247,0.4)" }}>
+              <Rocket className="w-4 h-4" style={{ color: "#a855f7" }} />
+            </div>
+            <div className="flex-1">
+              <p className="text-[13px] font-semibold text-[#f1f5f9]">Bereit zur Veröffentlichung</p>
+              <p className="text-[11px] text-[#64748b] mt-0.5">Ticket ist in Review — jetzt live deployen und als erledigt markieren</p>
+              <p className="text-[11px] mt-1" style={{ color: "#a855f7" }}>
+                {getPublishLabel()}
+              </p>
+            </div>
+            <button
+              onClick={handlePublish}
+              disabled={publishing}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-[13px] font-semibold transition-all duration-150"
+              style={{ background: "rgba(168,85,247,0.2)", color: "#d8b4fe", border: "1px solid rgba(168,85,247,0.5)" }}
+            >
+              {publishing
+                ? <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Deploying...</>
+                : <><Rocket className="w-3.5 h-3.5" /> Bestätigen & Live</>}
+            </button>
+          </div>
+
+          {/* Publish Logs */}
+          {publishLogs.length > 0 && (
+            <div className="px-4 pb-4">
+              <div className="rounded-lg p-3 font-mono text-[11px] space-y-0.5" style={{ background: "#0f172a", border: "1px solid #1e293b" }}>
+                <div className="flex items-center gap-1.5 mb-2 pb-2" style={{ borderBottom: "1px solid #1e293b" }}>
+                  <Terminal className="w-3 h-3 text-[#64748b]" />
+                  <span className="text-[10px] text-[#64748b] font-sans">Deploy Output</span>
+                </div>
+                {publishLogs.map((line, i) => (
+                  <div key={i} className="text-[#94a3b8] leading-relaxed whitespace-pre-wrap break-all">
+                    {line}
+                  </div>
+                ))}
+                {publishing && <div className="text-indigo-400 animate-pulse">▋</div>}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

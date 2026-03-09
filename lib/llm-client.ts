@@ -27,6 +27,7 @@ export interface LLMChatOptions {
   stream?: boolean;
   ollamaUrl?: string;
   lmStudioUrl?: string;
+  ollamaApiKey?: string;  // API key for remote Ollama (Bearer token)
   systemPrompt?: string;  // Optional system prompt (prepended to messages)
 }
 
@@ -40,6 +41,7 @@ export interface LLMResponse {
 // Default endpoints
 export const DEFAULT_OLLAMA_URL = "http://localhost:11434";
 export const DEFAULT_LM_STUDIO_URL = "http://localhost:1234";
+export const DEFAULT_REMOTE_OLLAMA_URL = "https://ollama.example.com";
 
 // Model descriptions (for known models)
 const MODEL_DESCRIPTIONS: Record<string, string> = {
@@ -58,12 +60,22 @@ const MODEL_DESCRIPTIONS: Record<string, string> = {
 };
 
 /**
- * Fetch available models from Ollama
+ * Build Ollama auth headers (empty if no key)
  */
-export async function getOllamaModels(baseUrl = DEFAULT_OLLAMA_URL): Promise<LLMModel[]> {
+function ollamaHeaders(apiKey?: string): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+  return headers;
+}
+
+/**
+ * Fetch available models from Ollama (with optional API key)
+ */
+export async function getOllamaModels(baseUrl = DEFAULT_OLLAMA_URL, apiKey?: string): Promise<LLMModel[]> {
   try {
     const res = await fetch(`${baseUrl}/api/tags`, {
-      signal: AbortSignal.timeout(3000),
+      signal: AbortSignal.timeout(5000),
+      headers: apiKey ? { "Authorization": `Bearer ${apiKey}` } : undefined,
     });
     if (!res.ok) return [];
     const data = await res.json();
@@ -101,17 +113,27 @@ export async function getLMStudioModels(baseUrl = DEFAULT_LM_STUDIO_URL): Promis
 }
 
 /**
- * Get all available models from both providers
+ * Get all available models from both providers.
+ * For Ollama: tries local URL first, falls back to remote URL if local fails.
  */
 export async function getAllModels(
   ollamaUrl = DEFAULT_OLLAMA_URL,
-  lmStudioUrl = DEFAULT_LM_STUDIO_URL
-): Promise<{ ollama: LLMModel[]; lmstudio: LLMModel[]; all: LLMModel[] }> {
-  const [ollama, lmstudio] = await Promise.all([
-    getOllamaModels(ollamaUrl),
-    getLMStudioModels(lmStudioUrl),
-  ]);
-  return { ollama, lmstudio, all: [...ollama, ...lmstudio] };
+  lmStudioUrl = DEFAULT_LM_STUDIO_URL,
+  ollamaApiKey?: string,
+  remoteOllamaUrl?: string,
+): Promise<{ ollama: LLMModel[]; lmstudio: LLMModel[]; all: LLMModel[]; ollamaSource: "local" | "remote" | "none" }> {
+  // Try local Ollama first (no key needed on LAN)
+  let ollama = await getOllamaModels(ollamaUrl);
+  let ollamaSource: "local" | "remote" | "none" = ollama.length > 0 ? "local" : "none";
+
+  // Fall back to remote tunnel if local is unavailable and remote is configured
+  if (ollama.length === 0 && remoteOllamaUrl && ollamaApiKey) {
+    ollama = await getOllamaModels(remoteOllamaUrl, ollamaApiKey);
+    ollamaSource = ollama.length > 0 ? "remote" : "none";
+  }
+
+  const lmstudio = await getLMStudioModels(lmStudioUrl);
+  return { ollama, lmstudio, all: [...ollama, ...lmstudio], ollamaSource };
 }
 
 /**
@@ -122,7 +144,7 @@ async function* streamOllama(opts: LLMChatOptions): AsyncGenerator<string> {
 
   const res = await fetch(`${baseUrl}/api/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: ollamaHeaders(opts.ollamaApiKey),
     body: JSON.stringify({
       model: opts.model,
       messages: opts.messages,
@@ -261,7 +283,7 @@ export async function chat(opts: LLMChatOptions): Promise<LLMResponse> {
   if (opts.provider === "ollama") {
     const res = await fetch(`${baseUrl}/api/chat`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: ollamaHeaders(opts.ollamaApiKey),
       body: JSON.stringify({
         model: opts.model,
         messages: opts.messages,

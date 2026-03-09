@@ -24,6 +24,7 @@ interface ModelsData {
   all: ModelInfo[];
   ollamaOnline: boolean;
   lmStudioOnline: boolean;
+  ollamaSource?: "local" | "remote" | "none";
 }
 
 const LANGUAGES_FOR_TRANSLATE: Array<{ code: string; name: string; flag: string }> = [
@@ -83,6 +84,8 @@ export default function SettingsPage() {
   // LLM State
   const [ollamaUrl, setOllamaUrl] = useState("http://localhost:11434");
   const [lmStudioUrl, setLmStudioUrl] = useState("http://localhost:1234");
+  const [remoteOllamaUrl, setRemoteOllamaUrl] = useState("https://ollama.example.com");
+  const [ollamaApiKey, setOllamaApiKey] = useState("");
   const [models, setModels] = useState<ModelsData | null>(null);
   const [loadingModels, setLoadingModels] = useState(false);
 
@@ -100,6 +103,8 @@ export default function SettingsPage() {
         const cfg = JSON.parse(stored);
         if (cfg.ollamaUrl) setOllamaUrl(cfg.ollamaUrl);
         if (cfg.lmStudioUrl) setLmStudioUrl(cfg.lmStudioUrl);
+        if (cfg.remoteOllamaUrl) setRemoteOllamaUrl(cfg.remoteOllamaUrl);
+        if (cfg.ollamaApiKey) setOllamaApiKey(cfg.ollamaApiKey);
       }
     } catch {}
     fetchModels();
@@ -108,7 +113,13 @@ export default function SettingsPage() {
   async function fetchModels() {
     setLoadingModels(true);
     try {
-      const res = await fetch(`/api/llm/models?ollamaUrl=${encodeURIComponent(ollamaUrl)}&lmStudioUrl=${encodeURIComponent(lmStudioUrl)}`);
+      const params = new URLSearchParams({
+        ollamaUrl,
+        lmStudioUrl,
+        remoteOllamaUrl,
+        ...(ollamaApiKey ? { ollamaApiKey } : {}),
+      });
+      const res = await fetch(`/api/llm/models?${params}`);
       const data = await res.json();
       setModels(data);
     } catch {
@@ -120,7 +131,7 @@ export default function SettingsPage() {
 
   function saveLLMConfig() {
     try {
-      localStorage.setItem("ctxdesk-llm-config", JSON.stringify({ ollamaUrl, lmStudioUrl }));
+      localStorage.setItem("ctxdesk-llm-config", JSON.stringify({ ollamaUrl, lmStudioUrl, remoteOllamaUrl, ollamaApiKey }));
       toast.success("LLM-Konfiguration gespeichert");
       fetchModels();
     } catch {
@@ -263,6 +274,42 @@ export default function SettingsPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </SectionCard>
+
+          {/* Remote Ollama (Mac Studio via Tunnel) */}
+          <SectionCard title="Remote Ollama — Mac Studio Tunnel" icon={Zap} accent="#06b6d4">
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 px-2.5 py-2 rounded-lg text-[11px]" style={{ background: "rgba(6,182,212,0.08)", border: "1px solid rgba(6,182,212,0.2)", color: "#67e8f9" }}>
+                <span>🌐</span>
+                <span>Automatischer Fallback: Lokal → Tunnel wenn unterwegs</span>
+                {models?.ollamaSource && (
+                  <span className="ml-auto font-mono" style={{ color: models.ollamaSource === "remote" ? "#34d399" : models.ollamaSource === "local" ? "#a5b4fc" : "#ef4444" }}>
+                    {models.ollamaSource === "remote" ? "● Remote" : models.ollamaSource === "local" ? "● Lokal" : "● Offline"}
+                  </span>
+                )}
+              </div>
+              <div>
+                <label className="text-[11px] text-[#64748b] mb-1 block">Remote URL (Tunnel)</label>
+                <input
+                  value={remoteOllamaUrl}
+                  onChange={e => setRemoteOllamaUrl(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg text-[13px] text-[#f1f5f9] outline-none transition-all font-mono"
+                  style={{ background: "#0f172a", border: "1px solid #334155" }}
+                  placeholder="https://ollama.example.com"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-[#64748b] mb-1 block">API Key</label>
+                <input
+                  type="password"
+                  value={ollamaApiKey}
+                  onChange={e => setOllamaApiKey(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg text-[13px] text-[#f1f5f9] outline-none transition-all font-mono"
+                  style={{ background: "#0f172a", border: "1px solid #334155" }}
+                  placeholder="Bearer Token für Remote-Zugriff"
+                />
+              </div>
             </div>
           </SectionCard>
 

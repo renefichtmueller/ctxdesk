@@ -53,9 +53,13 @@ export function Sidebar({ inboxCount = 0 }: SidebarProps) {
     try {
       let cfg: Record<string, string> = {};
       try { cfg = JSON.parse(localStorage.getItem("ctxdesk-llm-config") || "{}"); } catch {}
-      const ollamaUrl = encodeURIComponent(cfg.ollamaUrl || "http://localhost:11434");
-      const lmStudioUrl = encodeURIComponent(cfg.lmStudioUrl || "http://localhost:1234");
-      const res = await fetch(`/api/llm/models?ollamaUrl=${ollamaUrl}&lmStudioUrl=${lmStudioUrl}`);
+      const params = new URLSearchParams({
+        ollamaUrl: cfg.ollamaUrl || "http://localhost:11434",
+        lmStudioUrl: cfg.lmStudioUrl || "http://localhost:1234",
+        remoteOllamaUrl: cfg.remoteOllamaUrl || "https://ollama.example.com",
+        ...(cfg.ollamaApiKey ? { ollamaApiKey: cfg.ollamaApiKey } : {}),
+      });
+      const res = await fetch(`/api/llm/models?${params}`);
       const data = await res.json();
       setOllamaOnline(data.ollamaOnline);
       setLmStudioOnline(data.lmStudioOnline);

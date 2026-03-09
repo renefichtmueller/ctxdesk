@@ -15,6 +15,8 @@ import {
   Play, Pause, Brain, Paperclip, X, FileText,
   Image as ImageIcon, File, Bot, ChevronDown, ChevronUp,
   Send, Sparkles, Globe, Rocket, Terminal,
+  Timer, StopCircle, Link2, Unlink, Search, Clock,
+  AlertOctagon, ArrowRight,
 } from "lucide-react";
 import { PRIORITY_COLORS, PRIORITY_LABELS, STATUS_LABELS, TICKET_TYPES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -379,6 +381,288 @@ function AttachmentsPanel({ ticketId }: { ticketId: string }) {
   );
 }
 
+// ─── Time Tracker Panel ───────────────────────────────────────────────────────
+function formatDuration(seconds: number) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h > 0) return `${h}h ${m.toString().padStart(2, "0")}m`;
+  if (m > 0) return `${m}m ${s.toString().padStart(2, "0")}s`;
+  return `${s}s`;
+}
+
+function TimeTrackerPanel({ ticketId }: { ticketId: string }) {
+  const [totalSeconds, setTotalSeconds] = useState(0);
+  const [activeEntry, setActiveEntry] = useState<{ id: string; startedAt: string } | null>(null);
+  const [entries, setEntries] = useState<Array<{ id: string; startedAt: string; endedAt: string | null; note: string | null }>>([]);
+  const [elapsed, setElapsed] = useState(0);
+  const [loading, setLoading] = useState(false);
+
+  const loadTime = useCallback(async () => {
+    const res = await fetch(`/api/tickets/${ticketId}/time`);
+    const data = await res.json();
+    setTotalSeconds(data.totalSeconds ?? 0);
+    setActiveEntry(data.active ?? null);
+    setEntries(data.entries ?? []);
+  }, [ticketId]);
+
+  useEffect(() => { loadTime(); }, [loadTime]);
+
+  // Live-update elapsed time
+  useEffect(() => {
+    if (!activeEntry) { setElapsed(0); return; }
+    const update = () => {
+      setElapsed(Math.floor((Date.now() - new Date(activeEntry.startedAt).getTime()) / 1000));
+    };
+    update();
+    const iv = setInterval(update, 1000);
+    return () => clearInterval(iv);
+  }, [activeEntry]);
+
+  async function toggleTimer() {
+    setLoading(true);
+    try {
+      await fetch(`/api/tickets/${ticketId}/time`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: activeEntry ? "stop" : "start" }),
+      });
+      await loadTime();
+      toast.success(activeEntry ? "Timer gestoppt" : "Timer gestartet");
+    } catch { toast.error("Timer-Fehler"); }
+    finally { setLoading(false); }
+  }
+
+  async function deleteEntry(entryId: string) {
+    await fetch(`/api/tickets/${ticketId}/time?entryId=${entryId}`, { method: "DELETE" });
+    await loadTime();
+  }
+
+  const displaySeconds = activeEntry ? totalSeconds - elapsed + elapsed : totalSeconds;
+
+  return (
+    <div className="space-y-3">
+      {/* Timer display */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 rounded-lg px-4 py-3 flex items-center gap-3" style={{ background: "#0f172a", border: `1px solid ${activeEntry ? "rgba(249,115,22,0.4)" : "#1e293b"}` }}>
+          <Clock className={`w-4 h-4 ${activeEntry ? "text-orange-400 animate-pulse" : "text-[#475569]"}`} />
+          <div>
+            <p className="text-[20px] font-mono font-bold tracking-wider" style={{ color: activeEntry ? "#fb923c" : "#94a3b8" }}>
+              {formatDuration(activeEntry ? elapsed : totalSeconds)}
+            </p>
+            <p className="text-[10px] text-[#475569]">
+              {activeEntry ? "läuft..." : `Gesamt: ${formatDuration(displaySeconds)}`}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={toggleTimer}
+          disabled={loading}
+          className="flex items-center gap-2 px-4 py-3 rounded-lg text-[13px] font-semibold transition-all"
+          style={{
+            background: activeEntry ? "rgba(239,68,68,0.15)" : "rgba(249,115,22,0.15)",
+            border: `1px solid ${activeEntry ? "rgba(239,68,68,0.4)" : "rgba(249,115,22,0.4)"}`,
+            color: activeEntry ? "#f87171" : "#fb923c",
+          }}
+        >
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : activeEntry ? <StopCircle className="w-4 h-4" /> : <Timer className="w-4 h-4" />}
+          {activeEntry ? "Stop" : "Start"}
+        </button>
+      </div>
+
+      {/* Entry history (last 5) */}
+      {entries.slice(0, 5).map((e) => {
+        const dur = e.endedAt
+          ? Math.floor((new Date(e.endedAt).getTime() - new Date(e.startedAt).getTime()) / 1000)
+          : null;
+        return (
+          <div key={e.id} className="flex items-center gap-2 px-3 py-2 rounded-lg group" style={{ background: "#0f172a", border: "1px solid #1e293b" }}>
+            <Clock className="w-3 h-3 text-[#475569] shrink-0" />
+            <span className="text-[11px] text-[#64748b] flex-1">
+              {new Date(e.startedAt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
+              {e.endedAt && ` → ${new Date(e.endedAt).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`}
+            </span>
+            {dur !== null && (
+              <span className="text-[11px] font-mono text-[#94a3b8]">{formatDuration(dur)}</span>
+            )}
+            {!e.endedAt && <span className="text-[10px] text-orange-400 animate-pulse">läuft</span>}
+            <button onClick={() => deleteEntry(e.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-[#475569] hover:text-red-400">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        );
+      })}
+
+      {/* CSV Export Link */}
+      {entries.length > 0 && (
+        <a
+          href={`/api/reports/time?format=csv`}
+          className="flex items-center gap-1.5 text-[11px] text-[#475569] hover:text-[#94a3b8] transition-colors"
+          target="_blank"
+        >
+          <ArrowRight className="w-3 h-3" />
+          CSV-Report exportieren
+        </a>
+      )}
+    </div>
+  );
+}
+
+// ─── Dependencies Panel ───────────────────────────────────────────────────────
+interface DepTicket {
+  depId: string;
+  id: string;
+  title: string;
+  status: string;
+  priority: number;
+  agenda: { name: string; project: { name: string } } | null;
+}
+
+function DependenciesPanel({ ticketId }: { ticketId: string }) {
+  const [blockers, setBlockers] = useState<DepTicket[]>([]);
+  const [blocking, setBlocking] = useState<DepTicket[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Array<{ id: string; title: string; status: string }>>([]);
+  const [searching, setSearching] = useState(false);
+  const [adding, setAdding] = useState(false);
+
+  const loadDeps = useCallback(async () => {
+    const res = await fetch(`/api/tickets/${ticketId}/dependencies`);
+    const data = await res.json();
+    setBlockers(data.blockers ?? []);
+    setBlocking(data.blocking ?? []);
+  }, [ticketId]);
+
+  useEffect(() => { loadDeps(); }, [loadDeps]);
+
+  // Debounced search
+  useEffect(() => {
+    if (!searchQuery.trim()) { setSearchResults([]); return; }
+    const t = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const res = await fetch(`/api/tickets/search?q=${encodeURIComponent(searchQuery)}&exclude=${ticketId}`);
+        const data = await res.json();
+        setSearchResults(data.tickets ?? []);
+      } catch {} finally { setSearching(false); }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchQuery, ticketId]);
+
+  async function addBlocker(dependsOnId: string) {
+    setAdding(true);
+    try {
+      const res = await fetch(`/api/tickets/${ticketId}/dependencies`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dependsOnId }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setSearchQuery("");
+      setSearchResults([]);
+      await loadDeps();
+      toast.success("Abhängigkeit hinzugefügt");
+    } catch (err) { toast.error(String(err)); }
+    finally { setAdding(false); }
+  }
+
+  async function removeBlocker(depId: string) {
+    await fetch(`/api/tickets/${ticketId}/dependencies?depId=${depId}`, { method: "DELETE" });
+    await loadDeps();
+    toast.success("Abhängigkeit entfernt");
+  }
+
+  const statusColors: Record<string, string> = {
+    todo: "#6366f1", in_progress: "#f97316", in_review: "#a855f7", done: "#22c55e", backlog: "#64748b",
+  };
+
+  function DepRow({ dep, onRemove }: { dep: DepTicket; onRemove: () => void }) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg group" style={{ background: "#0f172a", border: "1px solid #1e293b" }}>
+        <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: statusColors[dep.status] ?? "#64748b" }} />
+        <div className="flex-1 min-w-0">
+          <p className="text-[12px] text-[#94a3b8] truncate">{dep.title}</p>
+          <p className="text-[10px] text-[#475569]">
+            {dep.agenda?.project?.name} · {dep.agenda?.name}
+          </p>
+        </div>
+        <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${statusColors[dep.status]}20`, color: statusColors[dep.status] ?? "#64748b" }}>
+          {dep.status.replace("_", " ")}
+        </span>
+        <button onClick={onRemove} className="opacity-0 group-hover:opacity-100 transition-opacity text-[#475569] hover:text-red-400">
+          <Unlink className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Blocked by */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748b] flex items-center gap-1.5">
+          <AlertOctagon className="w-3 h-3 text-red-400" />
+          Blockiert durch
+        </p>
+        {blockers.length === 0 ? (
+          <p className="text-[12px] text-[#475569] pl-1">Keine Blocker</p>
+        ) : (
+          blockers.map((dep) => (
+            <DepRow key={dep.depId} dep={dep} onRemove={() => removeBlocker(dep.depId)} />
+          ))
+        )}
+      </div>
+
+      {/* Blocks */}
+      {blocking.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748b] flex items-center gap-1.5">
+            <Link2 className="w-3 h-3 text-amber-400" />
+            Blockiert folgende Tickets
+          </p>
+          {blocking.map((dep) => (
+            <DepRow key={dep.depId} dep={dep} onRemove={() => removeBlocker(dep.depId)} />
+          ))}
+        </div>
+      )}
+
+      {/* Search to add */}
+      <div className="space-y-2">
+        <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-[#64748b]">Blocker hinzufügen</p>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#475569]" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Ticket suchen..."
+            className="w-full pl-8 pr-3 py-2 rounded-lg text-[12px] text-[#f1f5f9] placeholder:text-[#475569] outline-none focus:border-indigo-500"
+            style={{ background: "#0f172a", border: "1px solid #334155" }}
+          />
+          {searching && <Loader2 className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3 h-3 animate-spin text-[#475569]" />}
+        </div>
+        {searchResults.length > 0 && (
+          <div className="rounded-lg overflow-hidden" style={{ border: "1px solid #334155" }}>
+            {searchResults.slice(0, 6).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => addBlocker(t.id)}
+                disabled={adding}
+                className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-[#1e293b] transition-colors"
+                style={{ borderBottom: "1px solid #1e293b" }}
+              >
+                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: statusColors[t.status] ?? "#64748b" }} />
+                <span className="text-[12px] text-[#94a3b8] flex-1 truncate">{t.title}</span>
+                <Link2 className="w-3 h-3 text-[#475569] shrink-0" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function TicketPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
@@ -392,6 +676,8 @@ export default function TicketPage({ params }: { params: Promise<{ id: string }>
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [showAiChat, setShowAiChat] = useState(false);
   const [showAttachments, setShowAttachments] = useState(false);
+  const [showTimeTracker, setShowTimeTracker] = useState(false);
+  const [showDependencies, setShowDependencies] = useState(false);
   const [recommendation, setRecommendation] = useState<{ model: string; reason: string } | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [publishLogs, setPublishLogs] = useState<string[]>([]);
@@ -744,6 +1030,42 @@ export default function TicketPage({ params }: { params: Promise<{ id: string }>
           Speichern
         </button>
       </form>
+
+      {/* Time Tracker Panel */}
+      <div className="rounded-xl overflow-hidden" style={{ background: "#1e293b", border: "1px solid #334155" }}>
+        <button
+          onClick={() => setShowTimeTracker(!showTimeTracker)}
+          className="w-full flex items-center gap-2.5 px-4 py-3 text-left transition-all hover:bg-[#243044]"
+        >
+          <Timer className="w-3.5 h-3.5 text-orange-400" />
+          <span className="text-[12px] font-semibold text-orange-300 flex-1">Zeiterfassung</span>
+          <span className="text-[10px] text-[#475569]">Start/Stop-Timer · Stundenprotokoll</span>
+          {showTimeTracker ? <ChevronUp className="w-3.5 h-3.5 text-[#475569]" /> : <ChevronDown className="w-3.5 h-3.5 text-[#475569]" />}
+        </button>
+        {showTimeTracker && (
+          <div className="px-4 pb-4">
+            <TimeTrackerPanel ticketId={ticket.id} />
+          </div>
+        )}
+      </div>
+
+      {/* Dependencies Panel */}
+      <div className="rounded-xl overflow-hidden" style={{ background: "#1e293b", border: "1px solid #334155" }}>
+        <button
+          onClick={() => setShowDependencies(!showDependencies)}
+          className="w-full flex items-center gap-2.5 px-4 py-3 text-left transition-all hover:bg-[#243044]"
+        >
+          <Link2 className="w-3.5 h-3.5 text-amber-400" />
+          <span className="text-[12px] font-semibold text-amber-300 flex-1">Abhängigkeiten</span>
+          <span className="text-[10px] text-[#475569]">Blockiert durch / blockiert</span>
+          {showDependencies ? <ChevronUp className="w-3.5 h-3.5 text-[#475569]" /> : <ChevronDown className="w-3.5 h-3.5 text-[#475569]" />}
+        </button>
+        {showDependencies && (
+          <div className="px-4 pb-4">
+            <DependenciesPanel ticketId={ticket.id} />
+          </div>
+        )}
+      </div>
 
       {/* Attachments Panel */}
       <div className="rounded-xl overflow-hidden" style={{ background: "#1e293b", border: "1px solid #334155" }}>

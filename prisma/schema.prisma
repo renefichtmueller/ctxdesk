@@ -59,6 +59,32 @@ model Ticket {
   inboxItemId    String?
   inboxItem      InboxItem?      @relation(fields: [inboxItemId], references: [id])
   attachments    TicketAttachment[]
+  timeEntries    TimeEntry[]
+  dependencies   TicketDependency[] @relation("DependentTicket")
+  dependents     TicketDependency[] @relation("DependsOnTicket")
+}
+
+// ─── Time Tracking ────────────────────────────────────────────────────────────
+model TimeEntry {
+  id        String    @id @default(cuid())
+  ticketId  String
+  ticket    Ticket    @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+  note      String?
+  createdAt DateTime  @default(now())
+}
+
+// ─── Ticket Dependencies ─────────────────────────────────────────────────────
+model TicketDependency {
+  id          String  @id @default(cuid())
+  ticketId    String
+  ticket      Ticket  @relation("DependentTicket", fields: [ticketId], references: [id], onDelete: Cascade)
+  dependsOnId String
+  dependsOn   Ticket  @relation("DependsOnTicket", fields: [dependsOnId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([ticketId, dependsOnId])
 }
 
 model TicketAttachment {

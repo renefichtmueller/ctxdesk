@@ -24,6 +24,8 @@ import {
   Activity,
   Settings,
   Globe,
+  Sparkles,
+  BarChart2,
 } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 
@@ -94,6 +96,8 @@ export function Sidebar({ inboxCount = 0 }: SidebarProps) {
         { href: "/context", icon: Brain, label: t("context") },
         { href: "/agenda-sync", icon: RefreshCw, label: t("agendaSync") },
         { href: "/network", icon: Globe, label: "Network" },
+        { href: "/digest", icon: Sparkles, label: "Daily Digest" },
+        { href: "/reports", icon: BarChart2, label: "Reports" },
       ],
     },
     {

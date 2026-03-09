@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { parseAgendaMd } from "@/lib/agenda-parser";
 import fs from "fs/promises";
 import path from "path";
+import os from "os";
 
 // Default colors per project
 const PROJECT_COLORS: Record<string, string> = {
@@ -37,11 +38,13 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const dryRun = body.dryRun === true;
 
-  // Find agenda.md
+  // Find agenda.md — checks env var first, then common paths
+  const home = process.env.HOME || os.homedir();
   const agendaPaths = [
-    path.join(process.env.HOME || "/Users/user", ".claude/projects/-Users-renefichtmueller-Desktop-Claude-Code/memory/agenda.md"),
+    process.env.AGENDA_MD_PATH || "",
     path.join(process.env.APP_ROOT || process.cwd(), "../memory/agenda.md"),
-  ];
+    path.join(home, ".claude/projects", process.env.CLAUDE_PROJECT_HASH || "", "memory/agenda.md"),
+  ].filter(Boolean);
 
   let agendaContent = "";
   let agendaPath = "";

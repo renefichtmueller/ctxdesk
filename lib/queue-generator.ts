@@ -115,7 +115,7 @@ export async function generateQueue(tickets?: TicketWithRelations[]): Promise<vo
     claudeMd += "\n";
   }
 
-  claudeMd += `---\n*CtxDesk · http://localhost:3002 · http://192.0.2.10:3002*\n`;
+  claudeMd += `---\n*CtxDesk · http://localhost:3002*\n`;
 
   // ==========================================
   // 2. CHATGPT_QUEUE.md (ChatGPT Desktop)
@@ -147,7 +147,7 @@ export async function generateQueue(tickets?: TicketWithRelations[]): Promise<vo
     chatgptMd += "\n";
   }
 
-  chatgptMd += `---\n*Generiert von CtxDesk · http://192.0.2.10:3002*\n`;
+  chatgptMd += `---\n*Generiert von CtxDesk · http://localhost:3002*\n`;
 
   // ==========================================
   // 3. COPILOT_QUEUE.md (Microsoft Copilot)
@@ -173,7 +173,7 @@ export async function generateQueue(tickets?: TicketWithRelations[]): Promise<vo
     copilotMd += `\n*... und ${openTickets.length - 20} weitere Tasks*\n`;
   }
 
-  copilotMd += `\n---\n*CtxDesk · Status-Updates an: http://192.0.2.10:3002/api/tickets/progress*\n`;
+  copilotMd += `\n---\n*CtxDesk · Status-Updates an: http://localhost:3002/api/tickets/progress*\n`;
 
   // Write all queue files
   try {

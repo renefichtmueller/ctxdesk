@@ -5,7 +5,7 @@
 set -e
 
 CTXDESK_DIR="$HOME/Desktop/Claude Code/ctxdesk"
-MACSTUDIO_IP="192.0.2.10"
+MACSTUDIO_IP="${MACSTUDIO_IP:-}"  # Set your Mac Studio LAN IP (e.g. export MACSTUDIO_IP=192.0.2.10)
 MACSTUDIO_PORT="3002"
 LOCAL_PORT="3003"  # MacBook runs on 3003 to avoid conflict if connected via LAN
 
@@ -58,21 +58,23 @@ npm install --silent
 # 4. Set up MacBook-specific ecosystem config
 echo ""
 echo "→ Creating MacBook PM2 config..."
-cat > "$CTXDESK_DIR/ecosystem.macbook.js" << 'PMEOF'
+cat > "$CTXDESK_DIR/ecosystem.macbook.js" << PMEOF
 // CtxDesk PM2 Config — MacBook (Port 3003)
+const path = require("path");
+const CTXDESK_DIR = __dirname;
 module.exports = {
   apps: [
     {
       name: "ctxdesk-macbook",
       script: "node_modules/.bin/next",
       args: "start --port 3003",
-      cwd: "/Users/user/Desktop/Claude Code/ctxdesk",
+      cwd: CTXDESK_DIR,
       env: {
         PORT: 3003,
         HOSTNAME: "0.0.0.0",
         NODE_ENV: "production",
-        DATABASE_URL: "file:/Users/user/Desktop/Claude Code/ctxdesk/dev.db",
-        APP_ROOT: "/Users/user/Desktop/Claude Code/ctxdesk",
+        DATABASE_URL: \`file:\${CTXDESK_DIR}/dev.db\`,
+        APP_ROOT: CTXDESK_DIR,
         DEVICE: "macbook",
       },
       watch: false,
@@ -102,7 +104,7 @@ echo "→ Trying initial data sync from Mac Studio..."
 if ping -c 1 -W 2 "$MACSTUDIO_IP" &>/dev/null; then
     echo "  ✓ Mac Studio reachable — syncing database..."
     rsync -avz --progress \
-        "renefichtmueller@$MACSTUDIO_IP:/Users/user/Desktop/Claude Code/ctxdesk/dev.db" \
+        "${MACSTUDIO_USER:-$(whoami)}@$MACSTUDIO_IP:$CTXDESK_DIR/dev.db" \
         "$CTXDESK_DIR/dev.db" 2>/dev/null && echo "  ✓ Database synced!" || echo "  ⚠ Sync failed (SSH not configured?) — using fresh DB"
 else
     echo "  ⚠ Mac Studio not reachable — starting with empty DB"

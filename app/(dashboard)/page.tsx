@@ -137,7 +137,7 @@ export default async function DashboardPage() {
               MISSION CONTROL
             </h1>
             <p className="text-[11px] font-mono mt-0.5" style={{ color: "#6366f180" }}>
-              CtxDesk · Mac Studio Node · 192.0.2.10:3002
+              CtxDesk · {process.env.NEXT_PUBLIC_APP_URL ? process.env.NEXT_PUBLIC_APP_URL.replace("http://", "") : "localhost:3002"}
             </p>
           </div>
         </div>

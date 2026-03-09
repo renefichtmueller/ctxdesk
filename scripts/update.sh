@@ -3,7 +3,7 @@
 # Pulls latest code, rebuilds, restarts PM2
 # Usage: bash scripts/update.sh
 
-CTXDESK_DIR="/Users/user/Desktop/Claude Code/ctxdesk"
+CTXDESK_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DEVICE="${1:-$(hostname)}"
 
 echo "╔══════════════════════════════════════╗"

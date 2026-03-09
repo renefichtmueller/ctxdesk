@@ -17,7 +17,7 @@
  *     "mcpServers": {
  *       "ctxdesk": {
  *         "command": "node",
- *         "args": ["/Users/user/Desktop/Claude Code/ctxdesk/scripts/mcp-server.mjs"]
+ *         "args": ["/path/to/ctxdesk/scripts/mcp-server.mjs"]
  *       }
  *     }
  *   }

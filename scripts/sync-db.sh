@@ -5,12 +5,12 @@
 # - When offline: Continue working with local DB
 # Run automatically via launchd every 5 minutes, or manually
 
-MACSTUDIO_IP="192.0.2.10"
-MACSTUDIO_USER="renefichtmueller"
-MACSTUDIO_DB_PATH="/Users/user/Desktop/Claude Code/ctxdesk/dev.db"
-LOCAL_DB_PATH="/Users/user/Desktop/Claude Code/ctxdesk/dev.db"
-BACKUP_DIR="/Users/user/Desktop/Claude Code/ctxdesk/db-backups"
-LOG_FILE="/Users/user/Desktop/Claude Code/ctxdesk/logs/sync.log"
+MACSTUDIO_IP="${MACSTUDIO_IP:-}"              # Set via env: export MACSTUDIO_IP=192.168.x.x
+MACSTUDIO_USER="${MACSTUDIO_USER:-$(whoami)}" # Set via env: export MACSTUDIO_USER=yourusername
+MACSTUDIO_DB_PATH="${HOME}/Desktop/Claude Code/ctxdesk/dev.db"
+LOCAL_DB_PATH="${HOME}/Desktop/Claude Code/ctxdesk/dev.db"
+BACKUP_DIR="${HOME}/Desktop/Claude Code/ctxdesk/db-backups"
+LOG_FILE="${HOME}/Desktop/Claude Code/ctxdesk/logs/sync.log"
 DEVICE="${DEVICE:-macbook}"  # Set DEVICE=macstudio on Mac Studio
 
 mkdir -p "$BACKUP_DIR"
@@ -42,7 +42,7 @@ log "Local DB: $(date -r $LOCAL_MTIME '+%d.%m %H:%M') | Remote DB: $(date -r $RE
 
 if [ "$DEVICE" = "macstudio" ]; then
     # On Mac Studio: Push to MacBook (if MacBook is reachable)
-    MACBOOK_IP="${MACBOOK_IP:-192.0.2.10}"
+    MACBOOK_IP="${MACBOOK_IP:-}"  # Set via env: export MACBOOK_IP=192.168.x.x
     if ping -c 1 -W 2 "$MACBOOK_IP" &>/dev/null; then
         log "→ Pushing DB to MacBook (.${MACBOOK_IP##*.})..."
         # Backup MacBook DB first
@@ -95,8 +95,8 @@ fi
 if [ "$DEVICE" != "macstudio" ]; then
     for qfile in "CLAUDE_QUEUE.md" "CHATGPT_QUEUE.md" "COPILOT_QUEUE.md"; do
         rsync -az --checksum \
-            "$MACSTUDIO_USER@$MACSTUDIO_IP:/Users/user/Desktop/Claude Code/ctxdesk/$qfile" \
-            "/Users/user/Desktop/Claude Code/ctxdesk/$qfile" 2>/dev/null || true
+            "$MACSTUDIO_USER@$MACSTUDIO_IP:$MACSTUDIO_DB_PATH/../$qfile" \
+            "$LOCAL_DB_PATH/../$qfile" 2>/dev/null || true
     done
     log "✓ Queue-Dateien synchronisiert"
 fi

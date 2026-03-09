@@ -13,7 +13,7 @@ function getPublishAction(projectName: string): {
     return {
       type: "cloudflare_pages",
       label: "Cloudflare Pages Deploy",
-      command: `cd "/Users/user/Desktop/Webseite Example Org" && npx wrangler pages deploy . --project-name example-website 2>&1`,
+      command: process.env.DEPLOY_COMMAND || `echo "Set DEPLOY_COMMAND env var to configure your deploy script" && exit 1`,
     };
   }
   if (name.includes("ctxpost") || name.includes("linkedin") || name.includes("post")) {

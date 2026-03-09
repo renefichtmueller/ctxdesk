@@ -39,8 +39,8 @@ export default async function QueuePage() {
     queueContent = readFileSync(queuePath, "utf-8");
   }
 
-  const macStudioUrl = "http://192.0.2.10:3002";  // Mac Studio — primärer Host
-  const macBookUrl   = "http://192.0.2.10:3002";  // MacBook greift auch auf .169 zu (LAN)
+  const macStudioUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3002";
+  const macBookUrl   = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3002";
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">

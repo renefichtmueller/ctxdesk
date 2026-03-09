@@ -16,7 +16,8 @@ const FILES = [
   {
     key: "global-memory",
     label: "Globale Memory",
-    path: `${process.env.HOME}/.claude/projects/-Users-renefichtmueller-Desktop-Claude-Code/memory/MEMORY.md`,
+    // CLAUDE_MEMORY_PATH: set in .env to your ~/.claude/projects/<hash>/memory/MEMORY.md
+    path: process.env.CLAUDE_MEMORY_PATH || `${process.env.HOME}/.claude/projects/memory/MEMORY.md`,
     description: "~/.claude/projects/.../MEMORY.md — Claude-übergreifende Erinnerungen",
     color: "#22d3ee",
     readOnly: false,
@@ -77,7 +78,7 @@ export default function ContextPage() {
           MEMORY.md und CLAUDE.md Dateien können direkt bearbeitet werden.
         </p>
         <p className="text-[10px] text-slate-500 mt-1">
-          MacBook: localhost:3002 · MacStudio: 192.0.2.10:3002
+          Local: localhost:3002 · Remote: {process.env.NEXT_PUBLIC_APP_URL || "set NEXT_PUBLIC_APP_URL"}
         </p>
       </div>
 

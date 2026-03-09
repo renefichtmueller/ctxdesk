@@ -23,6 +23,7 @@ import {
   RefreshCw,
   Activity,
   Settings,
+  Globe,
 } from "lucide-react";
 import { useLanguage } from "@/components/providers/language-provider";
 
@@ -92,6 +93,7 @@ export function Sidebar({ inboxCount = 0 }: SidebarProps) {
         { href: "/queue", icon: Terminal, label: t("queue") },
         { href: "/context", icon: Brain, label: t("context") },
         { href: "/agenda-sync", icon: RefreshCw, label: t("agendaSync") },
+        { href: "/network", icon: Globe, label: "Network" },
       ],
     },
     {

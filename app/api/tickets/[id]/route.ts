@@ -45,6 +45,21 @@ export async function PATCH(
     data.activatedAt = null;
   }
 
+  // Auto-set status to "in_progress" when activating (only if currently "todo")
+  if (data.isActivated === true && !("status" in body)) {
+    const current = await prisma.ticket.findUnique({ where: { id }, select: { status: true } });
+    if (current?.status === "todo") {
+      data.status = "in_progress";
+    }
+  }
+  // Auto-reset status to "todo" when deactivating (only if currently "in_progress")
+  if (data.isActivated === false && !("status" in body)) {
+    const current = await prisma.ticket.findUnique({ where: { id }, select: { status: true } });
+    if (current?.status === "in_progress") {
+      data.status = "todo";
+    }
+  }
+
   const ticket = await prisma.ticket.update({
     where: { id },
     data,

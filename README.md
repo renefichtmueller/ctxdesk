@@ -1,149 +1,139 @@
-# CtxDesk — AI-Native Ticket & Project Management
+<div align="center">
 
-> Personal project & ops dashboard built for the [Example Org](https://example.com) ecosystem. Dark-theme, local-AI-first, SQLite-powered.
+# CtxDesk
 
-[![Next.js](https://img.shields.io/badge/Next.js-16.1-black?logo=next.js)](https://nextjs.org)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue?logo=typescript)](https://www.typescriptlang.org)
-[![Prisma](https://img.shields.io/badge/Prisma-6.x-teal?logo=prisma)](https://prisma.io)
-[![SQLite](https://img.shields.io/badge/SQLite-3-green?logo=sqlite)](https://sqlite.org)
-[![Ollama](https://img.shields.io/badge/Ollama-local_AI-orange)](https://ollama.ai)
+**AI-native project & ops management — built to be operated by Claude Code agents**
+
+[![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js&logoColor=white)](https://nextjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+[![Prisma](https://img.shields.io/badge/Prisma-6-2D3748?logo=prisma&logoColor=white)](https://prisma.io)
+[![SQLite](https://img.shields.io/badge/SQLite-3-003B57?logo=sqlite&logoColor=white)](https://sqlite.org)
+[![Ollama](https://img.shields.io/badge/Ollama-local_AI-FF6B35)](https://ollama.ai)
+[![License: MIT](https://img.shields.io/badge/License-MIT-a855f7.svg)](LICENSE)
+
+*No Jira. No Notion. No cloud AI. Just a dark-themed Kanban board that your AI agent can actually drive.*
+
+</div>
 
 ---
 
-## What is CtxDesk?
+## What is this?
 
-CtxDesk is an AI-assisted ticket and project management system built for personal/team ops workflows. It integrates with local LLMs (Ollama, LM Studio) for task analysis, prioritization, and AI-driven queue management. Designed for the Example Org NOG community platform ecosystem.
+CtxDesk is a self-hosted ticket and project management system with one unusual design goal: **it's built to be operated by AI agents, not just humans.**
 
-**Key philosophy:**
-- 🔒 **Local-first** — All LLM inference runs locally via Ollama or LM Studio. No cloud AI calls.
-- 🗂️ **SQLite** — Single-file database. No PostgreSQL needed. Runs anywhere.
-- 🌑 **Dark-theme native** — `#060b14` base, `#a855f7` primary accent.
-- ⚡ **Claude Code integration** — Designed to be operated by Claude Code agents via `CLAUDE_QUEUE.md`.
+When you activate a ticket, CtxDesk regenerates a `CLAUDE_QUEUE.md` file. Claude Code picks it up, works through the tasks, and posts progress back via a REST API — while you're grabbing coffee or sleeping.
+
+Everything runs locally. One SQLite file. No external services. No subscription.
+
+---
+
+## The AI Queue — How It Works
+
+```
+You activate tickets in CtxDesk
+        ↓
+CLAUDE_QUEUE.md is auto-regenerated
+        ↓
+Claude Code agent reads the queue (scheduled every 10 min)
+        ↓
+Agent works through tasks, posts progress to /api/tickets/progress
+        ↓
+You see results in the Live Log
+```
+
+The queue file contains all activated tickets with priority order, context hints, and project metadata — exactly what an AI agent needs to work autonomously.
+
+```markdown
+## ⚡ ACTIVATED — Work on these now
+
+- [ ] **[ABC123]** Add rate limiting to nginx proxy
+  - Agenda: Security Hardening · Project: Infrastructure
+  - Last update [14:32]: Implemented limit_req_zone 10r/min...
+```
 
 ---
 
 ## Features
 
-### 🎫 Ticket System
-- Full CRUD for tickets with **5 statuses**: `backlog → todo → in_progress → in_review → done`
-- Priority levels: P0 (Critical) · P1 (High) · P2 (Normal) · P3 (Low)
-- Ticket types: Feature · Bug · Task · Improvement · Research
-- **Kanban board** with drag-and-drop ordering and mouseover preview cards
-- **Ticket detail view** with edit form, AI analysis panel, attachments
+### Kanban Board
+Drag-and-drop board with 5 stages: `backlog → todo → in_progress → in_review → done`. Mouseover cards show full ticket context without opening the detail view.
 
-### 🤖 AI Integration (Local LLM)
-- **Ollama** support (llama3, nomic-embed-text, etc.) — local inference on Mac Studio
-- **LM Studio** support — alternative local AI backend (MacBook-friendly)
-- **Remote Ollama** via Cloudflare Tunnel — access Mac Studio models from anywhere
-- **Auto-fallback**: local Ollama → remote Ollama tunnel
-- **KI-Analyse**: AI analysis of ticket content on task start
-- **KI-Assistent chat**: In-ticket LLM chat panel with streaming responses
-- **Model recommendations**: suggests best model per ticket type (research, coding, etc.)
-- **Multi-language translation** of ticket content
+### AI Integration (100% Local)
+- **Ollama** — runs your local models (Llama 3, Qwen, Mistral, custom fine-tunes)
+- **LM Studio** — MacBook-friendly alternative backend
+- **Remote Ollama** via Cloudflare Tunnel — access your home GPU from anywhere
+- In-ticket AI chat with streaming responses
+- Auto-analysis when a ticket moves to `in_progress`
+- Model recommendations per task type (coding vs. research vs. translation)
 
-### 🚀 Publish / Deploy Button
-- Tickets in `in_review` status show a **"Bestätigen & Live"** button
-- **Example Org Website** tickets → triggers `npx wrangler pages deploy` to Cloudflare Pages
-- **CtxPost** tickets → marks LinkedIn posts as published
-- Deploy output streamed live in the ticket detail view
-- Auto-moves ticket to `done` + creates changelog entry on success
+### Deploy Button
+Tickets in `in_review` can trigger real deployments:
+- **Cloudflare Pages** — runs `wrangler pages deploy` and streams the output live
+- **Custom webhooks** — hook into any CI/CD system
 
-### 📋 CLAUDE_QUEUE.md
-- Auto-generated markdown file listing all active tickets
-- Consumed by Claude Code agents for autonomous task execution
-- Regenerated on every status/activation change
-- Contains ticket context, claude-specific hints, priority order
+### Live Log
+Real-time activity stream of everything happening: ticket activations, AI analysis runs, deploy events, agent progress updates. Filterable, persisted, searchable.
 
-### 📁 Projects & Agendas
-- Hierarchical: **Projects** → **Agendas** → **Tickets**
-- Projects: Example Org Website · CtxDesk · CtxEvent · CtxPOst · (+ any custom)
-- Per-project Kanban board with drag-and-drop
-- Agenda-level status tracking
+### Inbox
+Drop a `.md` file into a watched folder. CtxDesk parses it with local AI, extracts title/priority/project hints, and creates a ticket automatically.
 
-### 📥 Inbox (Agenda Sync)
-- Watches a configured directory for new `.md` files
-- AI-parses incoming files to extract title, project hint, priority
-- Creates tickets automatically from parsed inbox items
-- Shows unread count in sidebar
-
-### 📊 Live Log
-- Real-time activity stream: ticket activations, AI analysis runs, publish events, errors
-- Filterable by level (info/warn/error) and category
-- Persisted in DB for audit trail
-
-### 📈 Changelog
-- Auto-generated changelog entries when tickets move to `done`
-- Timeline view with project/agenda context
-- Markdown-rendered content
-- Feeds into example.com public changelog (via Cloudflare Pages deploy)
-
-### 📎 Attachments
-- Per-ticket file uploads: images, PDFs, documents
-- **Screenshot paste** via Ctrl+V directly into ticket view
-- Drag & drop upload zone
-- Files stored as Base64 in SQLite
-
-### ⚙️ Settings
-- LLM provider configuration (Ollama URL, LM Studio port, API keys)
-- Remote Ollama tunnel setup (for away-from-desk access)
-- Model preferences per use case
+### Attachments
+Per-ticket file uploads. Paste a screenshot with `Ctrl+V` directly into the ticket view. Stored as Base64 in SQLite — no S3 bucket needed.
 
 ---
 
 ## Tech Stack
 
-| Layer | Tech |
-|-------|------|
-| Framework | Next.js 16 (App Router) |
-| Language | TypeScript 5 |
-| ORM | Prisma 6 + SQLite adapter |
-| Database | SQLite 3 (single `dev.db` file) |
-| UI | Tailwind CSS + Radix UI primitives |
-| Icons | Lucide React |
-| Toasts | Sonner |
-| AI | Ollama (local) + LM Studio (local) |
-| Deploy | Self-hosted (PM2 + Node.js) or Cloudflare Tunnel |
+| Layer | Choice | Why |
+|-------|--------|-----|
+| Framework | Next.js 16 App Router | Server Actions, streaming, edge-ready |
+| Language | TypeScript 5 | Strict mode throughout |
+| ORM | Prisma 6 + SQLite adapter | Single-file DB, zero config |
+| UI | Tailwind CSS + Radix UI | Accessible primitives, dark theme |
+| AI | Ollama / LM Studio | Local inference, no API keys required |
+| Deploy | PM2 + Node.js | Self-hosted, ~50 MB RAM idle |
 
 ---
 
 ## Getting Started
 
-### Prerequisites
-- Node.js 20+
-- [Ollama](https://ollama.ai) installed and running (optional but recommended)
-
-### Installation
-
 ```bash
 git clone https://github.com/renefichtmueller/ctxdesk.git
 cd ctxdesk
 npm install
-```
-
-### Database Setup
-
-```bash
 npx prisma db push
-```
-
-### Development
-
-```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000)
+Open [http://localhost:3000](http://localhost:3000) — that's it. No Docker, no Postgres, no env file required to start.
 
-### Production Build
+### With AI (recommended)
+
+Install [Ollama](https://ollama.ai) and pull a model:
 
 ```bash
-npm run build
-npm start
+ollama pull qwen2.5:7b
 ```
 
-Or with PM2:
+Then set the Ollama URL in CtxDesk Settings → AI → `http://localhost:11434`.
+
+### Claude Code Integration
+
+Add a scheduled task in Claude Code that reads `CLAUDE_QUEUE.md` and processes activated tickets:
+
+```
+Every 10 minutes:
+  Read CLAUDE_QUEUE.md
+  For each activated ticket:
+    Check if already implemented → mark done
+    Otherwise → implement, post progress to /api/tickets/progress
+```
+
+Progress API:
 ```bash
-pm2 start npm --name ctxdesk -- start
+curl -X POST http://localhost:3000/api/tickets/progress \
+  -H "Content-Type: application/json" \
+  -d '{"ticketId": "abc123", "message": "Implemented rate limiting", "status": "done"}'
 ```
 
 ---
@@ -153,78 +143,50 @@ pm2 start npm --name ctxdesk -- start
 ```
 ctxdesk/
 ├── app/
-│   ├── (dashboard)/           # Main UI routes
-│   │   ├── changelog/         # Changelog timeline
-│   │   ├── inbox/             # Agenda sync inbox
-│   │   ├── live-log/          # Activity stream
-│   │   ├── projects/          # Project + Agenda views
-│   │   │   └── [id]/agendas/[agendaId]/  # Kanban board
-│   │   ├── queue/             # CLAUDE_QUEUE.md viewer
-│   │   ├── settings/          # LLM configuration
-│   │   └── tickets/[id]/      # Ticket detail view
+│   ├── (dashboard)/
+│   │   ├── projects/[id]/agendas/[agendaId]/  # Kanban board
+│   │   ├── tickets/[id]/                       # Ticket detail + AI chat
+│   │   ├── live-log/                           # Activity stream
+│   │   ├── queue/                              # CLAUDE_QUEUE.md viewer
+│   │   └── settings/                           # LLM config
 │   └── api/
-│       ├── agenda-sync/       # Inbox parsing endpoint
-│       ├── llm/               # LLM proxy (chat, models, recommend, translate)
-│       ├── tickets/
-│       │   ├── [id]/          # Ticket CRUD
-│       │   ├── [id]/attachments/  # File management
-│       │   ├── [id]/publish/  # Deploy/publish action
-│       │   └── progress/      # Claude Code progress updates
-│       ├── context/           # Claude context save
-│       └── live-log/          # Activity log endpoint
-├── actions/                   # Next.js Server Actions
-├── components/                # Reusable UI components
+│       ├── tickets/progress/                   # Agent progress endpoint
+│       ├── tickets/[id]/publish/               # Deploy trigger
+│       └── llm/                                # Local LLM proxy
 ├── lib/
-│   ├── prisma.ts              # Prisma client
-│   ├── llm-client.ts          # LLM provider abstraction
-│   ├── queue-generator.ts     # CLAUDE_QUEUE.md generator
-│   └── constants.ts           # Status labels, colors, types
-└── prisma/
-    └── schema.prisma          # DB schema
+│   ├── queue-generator.ts                      # CLAUDE_QUEUE.md generation
+│   └── llm-client.ts                           # Ollama/LM Studio abstraction
+└── prisma/schema.prisma                        # SQLite schema
 ```
 
 ---
 
-## Claude Code Integration
+## Design
 
-CtxDesk is designed to work hand-in-hand with Claude Code. The `CLAUDE_QUEUE.md` file is auto-generated and contains all active tickets in priority order:
+Dark theme native. `#060b14` background, `#a855f7` accent. Built for people who live in terminals and don't want a blinding white project board at 2am.
 
-```markdown
-# Claude Queue — CtxDesk
-> 3 active tickets · Last updated: 2026-03-09 10:30
-
-## [P1] MCP Server — Claude Desktop & Cursor Integration
-Status: todo | Agenda: CtxDesk > Features
-...
-```
-
-Claude Code agents can:
-1. Read `CLAUDE_QUEUE.md` to understand what to work on
-2. POST to `/api/tickets/progress` to log progress
-3. POST to `/api/tickets/[id]` to update status
-4. POST to `/api/tickets/[id]/publish` to trigger deployments
+No light mode. This is intentional.
 
 ---
 
-## Keyboard Shortcuts
+## Why Not Jira / Linear / Notion?
 
-| Key | Action |
-|-----|--------|
-| `Ctrl+V` | Paste screenshot as ticket attachment |
-| `Enter` | Send message in AI chat panel |
+Those tools are designed for humans clicking through a browser. CtxDesk is designed for humans **and** AI agents working together. The `CLAUDE_QUEUE.md` contract, the progress API, the deploy button — all of it exists to make AI-driven development loops possible without duct tape.
+
+If you're running Claude Code agents that do real work on your projects, you want a ticket system that speaks their language.
 
 ---
 
 ## Part of Example Org
 
-CtxDesk is part of the [Example Org](https://example.com) ecosystem — an open-source platform for Network Operator Groups (NOGs) built by the community.
+CtxDesk is part of the [Example Org](https://example.com) ecosystem — open-source tooling for Network Operator Groups (NOGs).
 
-**Related projects:**
-- [CtxEvent](https://github.com/renefichtmueller/ctxevent) — Event management for NOGs
-- [example.com](https://example.com) — Product website
+**Related:**
+- [example.com](https://example.com) — the platform
+- Built by [@renefichtmueller](https://github.com/renefichtmueller)
 
 ---
 
 ## License
 
-MIT — Built by [@renefichtmueller](https://github.com/renefichtmueller) for the NOG community.
+MIT

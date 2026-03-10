@@ -1,0 +1,13 @@
+{
+  "_comment": "Add this to your Claude Desktop config at ~/Library/Application Support/Claude/claude_desktop_config.json",
+  "_usage": "Run: npx tsx /path/to/ctxdesk/mcp/server.ts",
+  "mcpServers": {
+    "ctxdesk": {
+      "command": "npx",
+      "args": ["tsx", "/Users/user/Desktop/Claude Code/ctxdesk/mcp/server.ts"],
+      "env": {
+        "CTXDESK_URL": "http://localhost:3002"
+      }
+    }
+  }
+}
